@@ -148,7 +148,7 @@ https://github.com/zhenyumi/astrbot_plugin_dida365.git
 
 ### 6.1 创建应用
 
-在 Dida365 开发者平台创建 app（https://developer.dida365.com/manage），获得：
+在 Dida365 开发者平台 （https://developer.dida365.com/manage) 创建 app，获得：
 - Client ID
 - Client Secret
 
