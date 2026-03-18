@@ -1,0 +1,122 @@
+{
+  "access_token": {
+    "description": "Dida365 Access Token(手动维护)",
+    "type": "string",
+    "default": "",
+    "hint": "敏感信息. access token 有效期通常约 180 天, 请手动粘贴当前可用的 token."
+  },
+  "api_base_url": {
+    "description": "Dida365 Open API 基础地址",
+    "type": "string",
+    "default": "https://api.dida365.com/open/v1"
+  },
+  "default_project": {
+    "description": "默认项目名称或项目 ID",
+    "type": "string",
+    "default": "",
+    "hint": "自然语言任务操作未显式提到项目时, 优先使用这里配置的项目."
+  },
+  "request_timeout_seconds": {
+    "description": "Dida365 API 请求超时(秒)",
+    "type": "int",
+    "default": 15
+  },
+  "timezone": {
+    "description": "插件使用的时区(留空时跟随 AstrBot 全局 timezone)",
+    "type": "string",
+    "default": "",
+    "hint": "使用 IANA 时区名称, 例如 Asia/Shanghai. 用于 today、逾期判断、报表时间和自然语言时间解析."
+  },
+  "enable_daily_briefing": {
+    "description": "启用定时主动汇报总开关",
+    "type": "bool",
+    "default": false,
+    "hint": "打开后, 早报和晚报子开关才会生效."
+  },
+  "morning_report_time": {
+    "description": "今日任务汇报时间(HH:MM)",
+    "type": "string",
+    "default": "09:00"
+  },
+  "evening_report_time": {
+    "description": "未完成任务汇报时间(HH:MM)",
+    "type": "string",
+    "default": "18:00"
+  },
+  "report_target": {
+    "description": "备用汇报目标会话",
+    "type": "string",
+    "default": "",
+    "hint": "仅在还没有执行 /dida_bind_report_target 时, 作为兜底目标使用."
+  },
+  "enable_today_report": {
+    "description": "启用今日任务早报",
+    "type": "bool",
+    "default": true
+  },
+  "enable_unfinished_report": {
+    "description": "启用未完成任务晚报",
+    "type": "bool",
+    "default": true
+  },
+  "report_mode": {
+    "description": "定时汇报模式",
+    "type": "string",
+    "default": "direct",
+    "options": [
+      "direct",
+      "llm"
+    ],
+    "labels": [
+      "直接输出",
+      "LLM 润色"
+    ],
+    "hint": "direct 为插件直接输出, llm 为先整理结构化任务数据, 再交给当前会话模型改写."
+  },
+  "llm_report_prompt": {
+    "description": "LLM 汇报模式自定义 Prompt",
+    "type": "string",
+    "default": "",
+    "hint": "可选. 若配置, 可使用 {structured_report_input} 占位符."
+  },
+  "llm_max_tasks": {
+    "description": "送给 LLM 的最大任务数",
+    "type": "int",
+    "default": 12,
+    "hint": "用于限制 llm 汇报模式的输入规模."
+  },
+  "include_overdue_in_today_report": {
+    "description": "今日汇报中包含逾期未完成任务",
+    "type": "bool",
+    "default": false
+  },
+  "enable_llm_task_ops": {
+    "description": "启用基于 LLM 的自然语言任务操作",
+    "type": "bool",
+    "default": true,
+    "hint": "自然语言任务操作始终先经过当前会话的 LLM 解析."
+  },
+  "llm_task_ops_prompt": {
+    "description": "自然语言任务操作自定义 Prompt",
+    "type": "string",
+    "default": "",
+    "hint": "可选. 若配置, 可使用 {current_time}、{timezone}、{user_instruction} 占位符."
+  },
+  "confirm_low_risk_writes": {
+    "description": "低风险写操作需要确认",
+    "type": "bool",
+    "default": false,
+    "hint": "影响 create_task、complete_task、update_task."
+  },
+  "confirm_high_risk_writes": {
+    "description": "高风险写操作需要确认",
+    "type": "bool",
+    "default": true,
+    "hint": "影响 move_task、delete_task、batch_complete_tasks."
+  },
+  "confirmation_timeout_seconds": {
+    "description": "确认等待超时(秒)",
+    "type": "int",
+    "default": 180
+  }
+}

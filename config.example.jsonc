@@ -1,0 +1,69 @@
+{
+  // Dida365 Access Token
+  // 有效期通常约 180 天, 到期后请手动更新.
+  "access_token": "请填写一个当前可用的 Access Token",
+
+  // Dida365 Open API 基础地址
+  "api_base_url": "https://api.dida365.com/open/v1",
+
+  // 默认项目
+  // 自然语言任务操作未明确提到项目时, 优先使用这里的项目.
+  "default_project": "Inbox",
+
+  // API 请求超时(秒)
+  "request_timeout_seconds": 15,
+
+  // 插件业务时区
+  // 留空时默认跟随 AstrBot 全局 timezone.
+  "timezone": "Asia/Shanghai",
+
+  // 主动汇报总开关
+  "enable_daily_briefing": false,
+
+  // 今日任务早报时间(HH:MM)
+  "morning_report_time": "09:00",
+
+  // 未完成任务晚报时间(HH:MM)
+  "evening_report_time": "18:00",
+
+  // 备用主动汇报目标会话
+  // 更推荐直接在目标聊天执行 /dida_bind_report_target.
+  "report_target": "",
+
+  // 是否启用今日任务早报
+  "enable_today_report": true,
+
+  // 是否启用未完成任务晚报
+  "enable_unfinished_report": true,
+
+  // 主动汇报模式: direct 或 llm
+  // direct: 插件直接输出稳定文本
+  // llm: 插件先整理结构化任务数据, 再交给当前会话模型改写
+  "report_mode": "direct",
+
+  // 可选: 自定义 LLM 汇报 Prompt
+  // 支持占位符 {structured_report_input}
+  "llm_report_prompt": "",
+
+  // 送给 LLM 的最大任务数
+  "llm_max_tasks": 12,
+
+  // 今日汇报中是否包含逾期未完成任务
+  "include_overdue_in_today_report": false,
+
+  // 是否启用自然语言任务操作
+  "enable_llm_task_ops": true,
+
+  // 可选: 自定义自然语言解析 Prompt
+  // 支持占位符 {current_time}、{timezone}、{user_instruction}
+  "llm_task_ops_prompt": "",
+
+  // 低风险写操作是否需要确认
+  "confirm_low_risk_writes": false,
+
+  // 高风险写操作是否需要确认
+  "confirm_high_risk_writes": true,
+
+  // /dida_confirm 的确认等待时间(秒)
+  "confirmation_timeout_seconds": 180
+}
