@@ -273,7 +273,6 @@ class DidaTaskOpsCoordinator:
     """Coordinate LLM parsing, validation, confirmation, and task execution."""
 
     PENDING_CONFIRMATION_PREFIX = "pending_task_op"
-    _PENDING_PLAN_CACHE: dict[str, dict[str, Any]] = {}
 
     def __init__(
         self,
@@ -292,6 +291,7 @@ class DidaTaskOpsCoordinator:
         self._get_kv_data = get_kv_data
         self._put_kv_data = put_kv_data
         self._delete_kv_data = delete_kv_data
+        self._pending_plan_cache: dict[str, dict[str, Any]] = {}
 
     async def handle_instruction(self, event, instruction: str) -> str:
         if not self.settings.enable_llm_task_ops:
@@ -320,14 +320,14 @@ class DidaTaskOpsCoordinator:
         if plan.expires_at_ts and time.time() > plan.expires_at_ts:
             pending_key = self._pending_key(event)
             await self._delete_kv_data(pending_key)
-            self._PENDING_PLAN_CACHE.pop(pending_key, None)
+            self._pending_plan_cache.pop(pending_key, None)
             raise DidaConfirmationError(
                 "待确认的滴答清单操作已过期，请重新执行 /dida_do。",
             )
 
         pending_key = self._pending_key(event)
         await self._delete_kv_data(pending_key)
-        self._PENDING_PLAN_CACHE.pop(pending_key, None)
+        self._pending_plan_cache.pop(pending_key, None)
         return await self._execute_plan(plan, confirmed=True)
 
     async def cancel_pending(self, event) -> str:
@@ -336,7 +336,7 @@ class DidaTaskOpsCoordinator:
             return "当前会话中没有可取消的待确认滴答清单操作。"
         pending_key = self._pending_key(event)
         await self._delete_kv_data(pending_key)
-        self._PENDING_PLAN_CACHE.pop(pending_key, None)
+        self._pending_plan_cache.pop(pending_key, None)
         return (
             "已取消待确认的滴答清单操作。\n"
             f"- 动作: {plan.action}\n"
@@ -1344,7 +1344,7 @@ class DidaTaskOpsCoordinator:
         plan.created_at_ts = now
         plan.expires_at_ts = now + float(self.settings.confirmation_timeout_seconds)
         pending_key = self._pending_key(event)
-        self._PENDING_PLAN_CACHE[pending_key] = deepcopy(plan.to_dict())
+        self._pending_plan_cache[pending_key] = deepcopy(plan.to_dict())
         await self._put_kv_data(
             pending_key,
             self._sanitize_plan_dict_for_persistence(plan.to_dict()),
@@ -1352,14 +1352,14 @@ class DidaTaskOpsCoordinator:
 
     async def _load_pending_confirmation(self, event) -> DidaExecutionPlan | None:
         pending_key = self._pending_key(event)
-        data = self._PENDING_PLAN_CACHE.get(pending_key)
+        data = self._pending_plan_cache.get(pending_key)
         if data is None:
             data = await self._get_kv_data(pending_key, None)
         if not data:
             return None
         if not isinstance(data, dict):
             await self._delete_kv_data(pending_key)
-            self._PENDING_PLAN_CACHE.pop(pending_key, None)
+            self._pending_plan_cache.pop(pending_key, None)
             raise DidaConfirmationError(
                 "Stored Dida365 confirmation data is invalid and has been cleared.",
             )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import re
+from copy import deepcopy
 
 from astrbot.api import logger
 from astrbot.core.astr_main_agent import _get_session_conv
@@ -170,6 +170,8 @@ class DidaReportingCoordinator:
         session = MessageSession.from_str(target_umo)
 
         class _SyntheticEvent:
+            # Compatibility shim for AstrBot private conversation recovery.
+            # Keep this isolated so failures can fall back to direct reports.
             def __init__(self, umo: str, platform_id: str) -> None:
                 self.unified_msg_origin = umo
                 self._platform_id = platform_id
@@ -209,7 +211,7 @@ class DidaReportingCoordinator:
             if prompt := persona.get("prompt"):
                 system_prompt += f"\n# Persona Instructions\n\n{prompt}\n"
             if begin_dialogs := persona.get("_begin_dialogs_processed"):
-                contexts.extend(json.loads(json.dumps(begin_dialogs)))
+                contexts.extend(deepcopy(begin_dialogs))
         elif use_webchat_special_default:
             system_prompt += CHATUI_SPECIAL_DEFAULT_PERSONA_PROMPT
 

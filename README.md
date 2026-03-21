@@ -16,6 +16,8 @@
 
 当前版本使用手动维护 `access_token` 的方式。根据 Dida365 token 接口返回的 `expires_in` 示例，`access_token` 有效期通常约为 180 天。到期后请手动更新插件配置中的 `access_token`。
 
+兼容性说明：当前版本已在 `metadata.yaml` 声明的 AstrBot 版本范围内验证通过。`llm` 汇报与自然语言任务操作能力依赖 AstrBot 当前内部实现，升级大版本后建议重新验证。
+
 ## 安装方式
 
 ### 方式一：通过 AstrBot 插件市场安装

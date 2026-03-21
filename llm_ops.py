@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -157,7 +158,12 @@ class DidaLlmTaskIntentParser:
                 "No active chat provider is configured for this session, so Dida365 natural-language task operations cannot use the LLM parser.",
             )
 
-        conversation = await _get_session_conv(event, self.context)
+        try:
+            conversation = await _get_session_conv(event, self.context)
+        except Exception as exc:  # noqa: BLE001
+            raise DidaLlmIntentError(
+                "Unable to restore the current AstrBot conversation for Dida365 task parsing. Please retry in an active chat session.",
+            ) from exc
         provider_settings = self.context.get_config(umo=event.unified_msg_origin).get(
             "provider_settings",
             {},
@@ -249,7 +255,7 @@ class DidaLlmTaskIntentParser:
             if prompt := persona.get("prompt"):
                 system_prompt += f"\n# Persona Instructions\n\n{prompt}\n"
             if begin_dialogs := persona.get("_begin_dialogs_processed"):
-                contexts.extend(json.loads(json.dumps(begin_dialogs)))
+                contexts.extend(deepcopy(begin_dialogs))
         elif use_webchat_special_default:
             system_prompt += CHATUI_SPECIAL_DEFAULT_PERSONA_PROMPT
 

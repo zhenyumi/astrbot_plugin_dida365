@@ -66,8 +66,17 @@ class DidaClient:
     def __init__(
         self,
         settings: DidaPluginSettings,
+        session: aiohttp.ClientSession | None = None,
     ) -> None:
         self.settings = settings
+        self._session = session
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            raise DidaConfigurationError(
+                "Dida365 HTTP client is not initialized. Please reload the plugin and try again.",
+            )
+        return self._session
 
     def _build_headers(self, settings: DidaPluginSettings) -> dict[str, str]:
         if not settings.access_token:
@@ -115,6 +124,7 @@ class DidaClient:
         timeout = aiohttp.ClientTimeout(total=settings.request_timeout_seconds)
         url = self._build_url(settings, path)
         headers = self._build_headers(settings)
+        session = self._get_session()
         if json_body is not None and method.upper() in {
             "POST",
             "PUT",
@@ -133,66 +143,64 @@ class DidaClient:
                 ),
             )
         try:
-            async with aiohttp.ClientSession(
-                timeout=timeout, trust_env=True
-            ) as session:
-                async with session.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    params=params,
-                    json=json_body,
-                ) as response:
-                    body_text = await response.text()
-                    if response.status in (401, 403):
-                        logger.error(
-                            "Dida365 API response %s %s status=%s body=%s",
-                            method.upper(),
-                            path,
-                            response.status,
-                            _redact_sensitive_text(body_text[:2000]),
-                        )
-                        raise DidaAuthenticationError(
-                            "Dida365 authentication failed. The access token may have expired or become invalid. Please update access_token manually in the plugin config.",
-                            status=response.status,
-                            payload=_redact_sensitive_text(body_text[:500]),
-                        )
-                    if response.status == 404:
-                        logger.error(
-                            "Dida365 API response %s %s status=%s body=%s",
-                            method.upper(),
-                            path,
-                            response.status,
-                            _redact_sensitive_text(body_text[:2000]),
-                        )
-                        raise DidaNotFoundError(
-                            "The requested Dida365 resource was not found.",
-                            status=response.status,
-                            payload=_redact_sensitive_text(body_text[:500]),
-                        )
-                    if response.status >= 400:
-                        logger.error(
-                            "Dida365 API response %s %s status=%s body=%s",
-                            method.upper(),
-                            path,
-                            response.status,
-                            _redact_sensitive_text(body_text[:2000]),
-                        )
-                        raise DidaApiError(
-                            f"Dida365 API request failed with status {response.status}.",
-                            status=response.status,
-                            payload=_redact_sensitive_text(body_text[:500]),
-                        )
-                    if not body_text.strip():
-                        return {}
-                    try:
-                        return json.loads(body_text)
-                    except json.JSONDecodeError as exc:
-                        raise DidaApiError(
-                            "Dida365 API returned a non-JSON response.",
-                            status=response.status,
-                            payload=_redact_sensitive_text(body_text[:500]),
-                        ) from exc
+            async with session.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params,
+                json=json_body,
+                timeout=timeout,
+            ) as response:
+                body_text = await response.text()
+                if response.status in (401, 403):
+                    logger.error(
+                        "Dida365 API response %s %s status=%s body=%s",
+                        method.upper(),
+                        path,
+                        response.status,
+                        _redact_sensitive_text(body_text[:2000]),
+                    )
+                    raise DidaAuthenticationError(
+                        "Dida365 authentication failed. The access token may have expired or become invalid. Please update access_token manually in the plugin config.",
+                        status=response.status,
+                        payload=_redact_sensitive_text(body_text[:500]),
+                    )
+                if response.status == 404:
+                    logger.error(
+                        "Dida365 API response %s %s status=%s body=%s",
+                        method.upper(),
+                        path,
+                        response.status,
+                        _redact_sensitive_text(body_text[:2000]),
+                    )
+                    raise DidaNotFoundError(
+                        "The requested Dida365 resource was not found.",
+                        status=response.status,
+                        payload=_redact_sensitive_text(body_text[:500]),
+                    )
+                if response.status >= 400:
+                    logger.error(
+                        "Dida365 API response %s %s status=%s body=%s",
+                        method.upper(),
+                        path,
+                        response.status,
+                        _redact_sensitive_text(body_text[:2000]),
+                    )
+                    raise DidaApiError(
+                        f"Dida365 API request failed with status {response.status}.",
+                        status=response.status,
+                        payload=_redact_sensitive_text(body_text[:500]),
+                    )
+                if not body_text.strip():
+                    return {}
+                try:
+                    return json.loads(body_text)
+                except json.JSONDecodeError as exc:
+                    raise DidaApiError(
+                        "Dida365 API returned a non-JSON response.",
+                        status=response.status,
+                        payload=_redact_sensitive_text(body_text[:500]),
+                    ) from exc
         except aiohttp.ClientError as exc:
             raise DidaNetworkError(
                 f"Unable to reach the Dida365 API: {exc!s}",

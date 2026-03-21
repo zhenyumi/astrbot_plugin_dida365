@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+import aiohttp
+
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
@@ -24,13 +26,19 @@ class Main(Star):
     def __init__(self, context: Context, config: AstrBotConfig) -> None:
         super().__init__(context, config)
         self.config = config
+        self._http_session: aiohttp.ClientSession | None = None
 
     async def initialize(self) -> None:
         self._ensure_visible_prompt_defaults()
+        if self._http_session is None or self._http_session.closed:
+            self._http_session = aiohttp.ClientSession(trust_env=True)
         await self._sync_report_jobs()
 
     async def terminate(self) -> None:
         await self._clear_report_jobs()
+        if self._http_session and not self._http_session.closed:
+            await self._http_session.close()
+        self._http_session = None
 
     def _build_settings(self) -> DidaPluginSettings:
         fallback_timezone = str(
@@ -44,7 +52,7 @@ class Main(Star):
 
     def _build_client(self, settings: DidaPluginSettings | None = None) -> DidaClient:
         effective_settings = settings or self._build_settings()
-        return DidaClient(effective_settings)
+        return DidaClient(effective_settings, session=self._http_session)
 
     def _build_service(self) -> DidaService:
         settings = self._build_settings()
