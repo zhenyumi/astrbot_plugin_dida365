@@ -45,21 +45,21 @@ class DidaService:
 
     def build_status_summary(self) -> str:
         return (
-            "Dida365 plugin loaded\n"
-            f"- auth_configured: {bool(self.settings.access_token.strip())}\n"
-            f"- api_base_url_configured: {bool(self.settings.api_base_url.strip())}\n"
-            f"- default_project_configured: {bool(self.settings.default_project.strip())}\n"
-            f"- timezone: {self.settings.timezone}\n"
-            f"- daily_briefing_enabled: {self.settings.enable_daily_briefing}\n"
-            f"- llm_task_ops_enabled: {self.settings.enable_llm_task_ops}\n"
-            "- access_token_validity_hint: usually about 180 days\n"
-            "- token_refresh: disabled (update access_token manually)"
+            "滴答清单插件已加载\n"
+            f"- 已配置访问令牌: {bool(self.settings.access_token.strip())}\n"
+            f"- 已配置 API 地址: {bool(self.settings.api_base_url.strip())}\n"
+            f"- 已配置默认项目: {bool(self.settings.default_project.strip())}\n"
+            f"- 时区: {self.settings.timezone}\n"
+            f"- 已开启主动汇报: {self.settings.enable_daily_briefing}\n"
+            f"- 已开启自然语言任务操作: {self.settings.enable_llm_task_ops}\n"
+            "- Access Token 有效期提示: 通常约 180 天\n"
+            "- 自动刷新 Access Token: 未启用，请手动更新"
         )
 
     async def probe_read_access(self) -> str:
         projects = await self.client.list_projects()
         if not projects:
-            return "Dida365 API call succeeded, but no projects were returned."
+            return "滴答清单 API 调用成功，但没有返回任何项目。"
         project_names = ", ".join(
             self._format_display_text(
                 project.name or project.id,
@@ -69,16 +69,16 @@ class DidaService:
         )
         suffix = "" if len(projects) <= 5 else " ..."
         return (
-            f"Dida365 API read probe succeeded.\n"
-            f"- projects: {len(projects)}\n"
-            f"- sample: {project_names}{suffix}"
+            f"滴答清单 API 读取探测成功。\n"
+            f"- 项目数量: {len(projects)}\n"
+            f"- 示例项目: {project_names}{suffix}"
         )
 
     async def list_projects_summary(self) -> str:
         projects = await self.client.list_projects()
         if not projects:
-            return "No Dida365 projects were returned."
-        lines = [f"Dida365 projects: {len(projects)}"]
+            return "没有读取到任何滴答清单项目。"
+        lines = [f"滴答清单项目数: {len(projects)}"]
         for project in projects[:10]:
             project_name = self._format_display_text(
                 project.name,
@@ -98,18 +98,18 @@ class DidaService:
             else project_id
         )
         return (
-            f"Dida365 project data loaded.\n"
-            f"- project: {self._format_display_text(project_name, fallback='(unknown)')}\n"
-            f"- tasks: {len(project_data.tasks)}"
+            f"已读取滴答清单项目数据。\n"
+            f"- 项目: {self._format_display_text(project_name, fallback='(未知项目)')}\n"
+            f"- 任务数: {len(project_data.tasks)}"
         )
 
     async def list_today_tasks_summary(self) -> str:
         today = self._today()
         today_tasks = await self.list_today_tasks(today=today)
         if not today_tasks:
-            return f"No tasks due today ({today.isoformat()})."
+            return f"今天没有到期任务（{today.isoformat()}）。"
 
-        lines = [f"Dida365 tasks due today ({today.isoformat()}): {len(today_tasks)}"]
+        lines = [f"今日到期任务（{today.isoformat()}）: {len(today_tasks)}"]
         task_blocks = [
             self._format_task_block_from_item(item)
             for item in today_tasks[: self.TODAY_DISPLAY_LIMIT]
@@ -141,7 +141,7 @@ class DidaService:
     async def list_unfinished_tasks_summary(self) -> str:
         unfinished_tasks = await self.list_unfinished_tasks()
         if not unfinished_tasks:
-            return "No unfinished tasks were found."
+            return "没有未完成任务。"
 
         overdue_count = sum(
             1 for item in unfinished_tasks if self._is_overdue(item.task)
@@ -153,10 +153,10 @@ class DidaService:
         )
 
         lines = [
-            f"Dida365 unfinished tasks: {len(unfinished_tasks)}",
-            f"- overdue: {overdue_count}",
-            f"- without due date: {no_due_count}",
-            "- showing: top 30 by urgency",
+            f"未完成任务数: {len(unfinished_tasks)}",
+            f"- 逾期任务: {overdue_count}",
+            f"- 无截止日期: {no_due_count}",
+            "- 当前展示: 按紧急程度排序的前 30 条",
         ]
         task_blocks = [
             self._format_task_block_from_item(item, include_overdue=True)
@@ -167,7 +167,7 @@ class DidaService:
             lines.extend(task_blocks)
         if len(unfinished_tasks) > self.UNFINISHED_DISPLAY_LIMIT:
             remaining = len(unfinished_tasks) - self.UNFINISHED_DISPLAY_LIMIT
-            lines.extend(["", f"... and {remaining} more unfinished tasks"])
+            lines.extend(["", f"... 还有 {remaining} 条未完成任务未展示"])
         return "\n\n".join(lines)
 
     async def list_unfinished_tasks(self) -> list[DidaTaskWithProject]:
@@ -225,11 +225,11 @@ class DidaService:
             truncated_count = len(report_tasks) - max_tasks
             report_tasks = report_tasks[:max_tasks]
 
-        selection_rule = "tasks due today and not completed"
-        sorting_rule = "due time ascending"
+        selection_rule = "今天到期且未完成的任务"
+        sorting_rule = "按截止时间升序"
         if include_overdue:
-            selection_rule = "unfinished tasks that are overdue or due today"
-            sorting_rule = "overdue first, then due time ascending"
+            selection_rule = "今天到期或已经逾期且未完成的任务"
+            sorting_rule = "逾期优先，其次按截止时间升序"
 
         return DidaStructuredReport(
             report_type="today",
@@ -268,11 +268,8 @@ class DidaService:
         return DidaStructuredReport(
             report_type="unfinished",
             current_time=now.strftime("%Y-%m-%d %H:%M"),
-            selection_rule="all tasks not completed, including tasks without due dates",
-            sorting_rule=(
-                "overdue first, then tasks with due dates by ascending due time, "
-                "then tasks without due dates, higher priority first within the same urgency"
-            ),
+            selection_rule="所有未完成任务，包含没有截止日期的任务",
+            sorting_rule="逾期优先，其次按截止时间升序，再显示无截止日期任务，同一紧急度下高优先级优先",
             summary_counts={
                 "overdue_count": overdue_count,
                 "due_today_count": sum(
@@ -288,22 +285,22 @@ class DidaService:
         )
 
     def render_direct_report(self, report: DidaStructuredReport) -> str:
-        title = "Dida365 scheduled today report"
+        title = "滴答清单定时汇报：今日任务"
         if report.report_type == "unfinished":
-            title = "Dida365 scheduled unfinished report"
+            title = "滴答清单定时汇报：未完成任务"
 
         lines = [
             title,
-            f"Generated at: {report.current_time}",
-            f"Selection rule: {report.selection_rule}",
-            f"Sorting rule: {report.sorting_rule}",
-            f"Task count: {report.total_task_count}",
-            f"Overdue: {report.summary_counts.get('overdue_count', 0)}",
-            f"Due today: {report.summary_counts.get('due_today_count', 0)}",
-            f"Without due date: {report.summary_counts.get('no_due_date_count', 0)}",
+            f"生成时间: {report.current_time}",
+            f"筛选规则: {report.selection_rule}",
+            f"排序规则: {report.sorting_rule}",
+            f"任务总数: {report.total_task_count}",
+            f"逾期任务: {report.summary_counts.get('overdue_count', 0)}",
+            f"今日到期: {report.summary_counts.get('due_today_count', 0)}",
+            f"无截止日期: {report.summary_counts.get('no_due_date_count', 0)}",
         ]
         if not report.tasks:
-            lines.extend(["", "No tasks matched the report criteria."])
+            lines.extend(["", "没有任务符合本次汇报条件。"])
             return "\n".join(lines)
 
         task_blocks = []
@@ -315,7 +312,7 @@ class DidaService:
             lines.extend(
                 [
                     "",
-                    f"... and {report.truncated_task_count} more tasks omitted from this report.",
+                    f"... 还有 {report.truncated_task_count} 条任务未在本次汇报中展开。",
                 ]
             )
         return "\n".join(lines)
@@ -477,7 +474,7 @@ class DidaService:
     def _format_due(self, task: DidaTask) -> str:
         due_dt = self._effective_due_datetime(task)
         if not due_dt:
-            return "(no due date)"
+            return "(无截止日期)"
         if task.is_all_day:
             return due_dt.date().isoformat()
         return due_dt.strftime("%Y-%m-%d %H:%M")
@@ -485,7 +482,7 @@ class DidaService:
     @staticmethod
     def _format_priority(task: DidaTask) -> str:
         priority_map = {
-            None: "(unknown)",
+            None: "(未知)",
             0: "none",
             1: "low",
             3: "medium",
@@ -535,10 +532,10 @@ class DidaService:
 
     def _make_report_task_view(self, item: DidaTaskWithProject) -> DidaReportTaskView:
         return DidaReportTaskView(
-            title=self._normalize_text(item.task.title, fallback="(untitled)"),
+            title=self._normalize_text(item.task.title, fallback="(无标题)"),
             project=self._normalize_text(
                 item.project_name or item.project_id,
-                fallback="(unknown)",
+                fallback="(未知项目)",
             ),
             due=self._format_due(item.task),
             priority=self._format_priority(item.task),
@@ -552,21 +549,21 @@ class DidaService:
         *,
         index: int | None = None,
     ) -> str:
-        title = self._format_display_text(item.task.title, fallback="(untitled)")
+        title = self._format_display_text(item.task.title, fallback="(无标题)")
         project = self._format_display_text(
             item.project_name or item.project_id,
-            fallback="(unknown)",
+            fallback="(未知项目)",
         )
-        task_id = self._format_display_text(item.task.id, fallback="(unknown)")
+        task_id = self._format_display_text(item.task.id, fallback="(未知)")
         prefix = f"{index}. " if index is not None else ""
         return "\n".join(
             [
-                f"{prefix}Task: {title}",
-                f"Project: {project}",
-                f"Due: {self._format_due(item.task)}",
-                f"Priority: {self._format_priority(item.task)}",
-                f"Status: {self._format_status(item.task)}",
-                f"Task ID: {task_id}",
+                f"{prefix}任务: {title}",
+                f"项目: {project}",
+                f"截止: {self._format_due(item.task)}",
+                f"优先级: {self._format_priority(item.task)}",
+                f"状态: {self._format_status(item.task)}",
+                f"任务 ID: {task_id}",
             ]
         )
 
@@ -591,16 +588,16 @@ class DidaService:
     ) -> str:
         title = cls._escape_markdown(task.title)
         project = cls._escape_markdown(task.project)
-        header = f"Task {index}: {title}  " if index else f"Task: {title}  "
+        header = f"任务 {index}: {title}  " if index else f"任务: {title}  "
         lines = [
             header,
-            f"Project: {project}  ",
-            f"Due: {task.due}  ",
-            f"Priority: {task.priority}  ",
-            f"Status: {task.status}",
+            f"项目: {project}  ",
+            f"截止: {task.due}  ",
+            f"优先级: {task.priority}  ",
+            f"状态: {task.status}",
         ]
         if include_overdue:
-            lines.append(f"Overdue: {'yes' if task.overdue else 'no'}")
+            lines.append(f"是否逾期: {'是' if task.overdue else '否'}")
         return "\n".join(lines)
 
     def _should_include_in_today_report(
@@ -637,4 +634,4 @@ class DidaService:
             return str(error)
         if isinstance(error, DidaError):
             return str(error)
-        return f"Unexpected Dida365 plugin error: {error!s}"
+        return f"滴答清单插件发生未预期错误：{error!s}"

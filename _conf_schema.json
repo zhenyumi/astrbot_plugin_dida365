@@ -1,9 +1,9 @@
 {
   "access_token": {
-    "description": "Dida365 Access Token(手动维护)",
+    "description": "Dida365 Access Token（手动维护）",
     "type": "string",
     "default": "",
-    "hint": "敏感信息. access token 有效期通常约 180 天, 请手动粘贴当前可用的 token."
+    "hint": "敏感信息。请填写当前可用的 Access Token。Dida365 access token 有效期通常约为 180 天，到期后请手动更新。"
   },
   "api_base_url": {
     "description": "Dida365 Open API 基础地址",
@@ -14,32 +14,32 @@
     "description": "默认项目名称或项目 ID",
     "type": "string",
     "default": "",
-    "hint": "自然语言任务操作未显式提到项目时, 优先使用这里配置的项目."
+    "hint": "自然语言任务操作未明确提到项目时，优先使用这里配置的项目。"
   },
   "request_timeout_seconds": {
-    "description": "Dida365 API 请求超时(秒)",
+    "description": "Dida365 API 请求超时（秒）",
     "type": "int",
     "default": 15
   },
   "timezone": {
-    "description": "插件使用的时区(留空时跟随 AstrBot 全局 timezone)",
+    "description": "插件使用的时区（留空时跟随 AstrBot 全局 timezone）",
     "type": "string",
     "default": "",
-    "hint": "使用 IANA 时区名称, 例如 Asia/Shanghai. 用于 today、逾期判断、报表时间和自然语言时间解析."
+    "hint": "使用 IANA 时区名称，例如 Asia/Shanghai。用于 today、逾期判断、主动汇报和自然语言时间解析。"
   },
   "enable_daily_briefing": {
     "description": "启用定时主动汇报总开关",
     "type": "bool",
     "default": false,
-    "hint": "打开后, 早报和晚报子开关才会生效."
+    "hint": "打开后，早报和晚报子开关才会生效。"
   },
   "morning_report_time": {
-    "description": "今日任务汇报时间(HH:MM)",
+    "description": "今日任务汇报时间（HH:MM）",
     "type": "string",
     "default": "09:00"
   },
   "evening_report_time": {
-    "description": "未完成任务汇报时间(HH:MM)",
+    "description": "未完成任务汇报时间（HH:MM）",
     "type": "string",
     "default": "18:00"
   },
@@ -47,7 +47,7 @@
     "description": "备用汇报目标会话",
     "type": "string",
     "default": "",
-    "hint": "仅在还没有执行 /dida_bind_report_target 时, 作为兜底目标使用."
+    "hint": "仅在还没有执行 /dida_bind_report_target 时，作为兜底目标使用。"
   },
   "enable_today_report": {
     "description": "启用今日任务早报",
@@ -71,19 +71,19 @@
       "直接输出",
       "LLM 润色"
     ],
-    "hint": "direct 为插件直接输出, llm 为先整理结构化任务数据, 再交给当前会话模型改写."
+    "hint": "direct 为插件直接输出稳定文本，llm 为插件先整理结构化任务数据，再交给当前会话模型生成汇报。"
   },
   "llm_report_prompt": {
     "description": "LLM 汇报模式自定义 Prompt",
     "type": "string",
     "default": "",
-    "hint": "可选. 若配置, 可使用 {structured_report_input} 占位符."
+    "hint": "可选。若已配置，可使用 {structured_report_input} 占位符。"
   },
   "llm_max_tasks": {
     "description": "送给 LLM 的最大任务数",
     "type": "int",
     "default": 12,
-    "hint": "用于限制 llm 汇报模式的输入规模."
+    "hint": "用于限制 llm 汇报模式的输入规模。"
   },
   "include_overdue_in_today_report": {
     "description": "今日汇报中包含逾期未完成任务",
@@ -94,28 +94,28 @@
     "description": "启用基于 LLM 的自然语言任务操作",
     "type": "bool",
     "default": true,
-    "hint": "自然语言任务操作始终先经过当前会话的 LLM 解析."
+    "hint": "自然语言任务操作始终先经过当前会话的 LLM 解析。"
   },
   "llm_task_ops_prompt": {
-    "description": "自然语言任务操作自定义 Prompt",
+    "description": "自然语言任务操作 Prompt（默认已预填）",
     "type": "string",
-    "default": "",
-    "hint": "可选. 若配置, 可使用 {current_time}、{timezone}、{user_instruction} 占位符."
+    "default": "You are a Dida365 task operation intent parser.\nYour only job is to convert the user's natural-language instruction into one JSON object.\nDo not explain your reasoning. Do not wrap the JSON in Markdown unless required by the model.\nThis phase supports these executable actions: create_task, complete_task, update_task, move_task, delete_task.\nIf the user asks for another unsupported action, still report the best matching action name, but do not rewrite it into a supported action.\n\nRules:\n1. Output exactly one JSON object.\n2. Never invent missing facts. Leave unknown fields as empty strings and use an empty object for update_fields when needed.\n3. For create_task, put the new task title in title.\n4. For complete_task, update_task, move_task, and delete_task, put the task reference phrase in target_task_query.\n5. project should be the current/source project name or identifier only if the user explicitly mentions it and it helps disambiguate the task.\n6. target_project should only be used for move_task.\n7. due_date must use YYYY-MM-DD when only a date is known.\n8. due_datetime must use YYYY-MM-DD HH:MM when a specific local time is known.\n9. The top-level priority and content fields are only for create_task.\n10. For update_task, put only changed fields into update_fields. Supported keys are due_date, due_datetime, priority, and content.\n11. confidence should be a number between 0 and 1.\n12. ambiguity_reason should explain what is unclear, or be an empty string.\n13. risk_level should be \"low\" for create_task, complete_task, update_task. risk_level should be \"high\" for move_task and delete_task.\n14. When the user says to cancel, remove, delete, drop, or no longer do an existing task, prefer delete_task, not create_task.\n15. If the user refers to an existing task using labels like \"Task: Wash up\", \"任务: 洗澡\", or quoted text, copy the referenced task text into target_task_query without the label prefix when possible.\n16. If the user says to cancel a previously planned task, and the instruction is about the existing task itself rather than the pending confirmation flow, treat it as delete_task.\n17. If the user changes a task to a date or time, such as \"move it to tomorrow\", \"改到明天\", \"推迟到周五\", or \"改到晚上十一点\", treat that as update_task with due_date or due_datetime, not move_task.\n18. Use move_task only when the target is another project, list, or folder. If there is no target project or list, do not use move_task.\n\nReturn this JSON shape:\n{\n  \"action\": \"create_task\",\n  \"risk_level\": \"low\",\n  \"title\": \"\",\n  \"target_task_query\": \"\",\n  \"project\": \"\",\n  \"target_project\": \"\",\n  \"due_date\": \"\",\n  \"due_datetime\": \"\",\n  \"priority\": \"\",\n  \"content\": \"\",\n  \"update_fields\": {\n    \"due_date\": \"\",\n    \"due_datetime\": \"\",\n    \"priority\": \"\",\n    \"content\": \"\"\n  },\n  \"requires_confirmation\": false,\n  \"confidence\": 0.0,\n  \"ambiguity_reason\": \"\"\n}\n\nCurrent local time: {current_time}\nCurrent timezone: {timezone}\nUser instruction:\n{user_instruction}\n",
+    "hint": "插件管理界面中默认已经展示内置 Prompt。你可以直接查看、复制或按需修改。支持占位符：{current_time}、{timezone}、{user_instruction}。"
   },
   "confirm_low_risk_writes": {
     "description": "低风险写操作需要确认",
     "type": "bool",
     "default": false,
-    "hint": "影响 create_task、complete_task、update_task."
+    "hint": "影响 create_task、complete_task、update_task。"
   },
   "confirm_high_risk_writes": {
     "description": "高风险写操作需要确认",
     "type": "bool",
     "default": true,
-    "hint": "影响 move_task、delete_task、batch_complete_tasks."
+    "hint": "影响 move_task、delete_task。"
   },
   "confirmation_timeout_seconds": {
-    "description": "确认等待超时(秒)",
+    "description": "确认等待超时（秒）",
     "type": "int",
     "default": 180
   }

@@ -273,7 +273,6 @@ class DidaTaskOpsCoordinator:
     """Coordinate LLM parsing, validation, confirmation, and task execution."""
 
     PENDING_CONFIRMATION_PREFIX = "pending_task_op"
-    MAX_BATCH_TASKS = 10
     _PENDING_PLAN_CACHE: dict[str, dict[str, Any]] = {}
 
     def __init__(
@@ -297,12 +296,12 @@ class DidaTaskOpsCoordinator:
     async def handle_instruction(self, event, instruction: str) -> str:
         if not self.settings.enable_llm_task_ops:
             raise DidaValidationError(
-                "Dida365 natural-language task operations are disabled in the plugin config.",
+                "插件配置中已关闭滴答清单自然语言任务操作。",
             )
 
         request_text = str(instruction or "").strip()
         if not request_text:
-            raise DidaValidationError("Usage: /dida_do <natural language instruction>")
+            raise DidaValidationError("用法：/dida_do <自然语言指令>")
 
         intent = await self.intent_parser.parse_task_instruction(event, request_text)
         plan = await self._build_execution_plan(intent, request_text)
@@ -315,7 +314,7 @@ class DidaTaskOpsCoordinator:
         plan = await self._load_pending_confirmation(event)
         if not plan:
             raise DidaConfirmationError(
-                "There is no pending Dida365 task operation waiting for confirmation in this chat.",
+                "当前会话中没有等待确认的滴答清单操作。",
             )
 
         if plan.expires_at_ts and time.time() > plan.expires_at_ts:
@@ -323,7 +322,7 @@ class DidaTaskOpsCoordinator:
             await self._delete_kv_data(pending_key)
             self._PENDING_PLAN_CACHE.pop(pending_key, None)
             raise DidaConfirmationError(
-                "The pending Dida365 task operation confirmation has expired. Please run /dida_do again.",
+                "待确认的滴答清单操作已过期，请重新执行 /dida_do。",
             )
 
         pending_key = self._pending_key(event)
@@ -334,14 +333,14 @@ class DidaTaskOpsCoordinator:
     async def cancel_pending(self, event) -> str:
         plan = await self._load_pending_confirmation(event)
         if not plan:
-            return "There is no pending Dida365 task operation to cancel in this chat."
+            return "当前会话中没有可取消的待确认滴答清单操作。"
         pending_key = self._pending_key(event)
         await self._delete_kv_data(pending_key)
         self._PENDING_PLAN_CACHE.pop(pending_key, None)
         return (
-            "Cancelled the pending Dida365 task operation.\n"
-            f"- action: {plan.action}\n"
-            f"- subject: {self._plan_subject(plan)}"
+            "已取消待确认的滴答清单操作。\n"
+            f"- 动作: {plan.action}\n"
+            f"- 对象: {self._plan_subject(plan)}"
         )
 
     async def _build_execution_plan(
@@ -362,11 +361,10 @@ class DidaTaskOpsCoordinator:
             "update_task": self._build_update_execution_plan,
             "move_task": self._build_move_execution_plan,
             "delete_task": self._build_delete_execution_plan,
-            "batch_complete_tasks": self._build_batch_complete_execution_plan,
         }
         if action not in builders:
             raise DidaValidationError(
-                f"The parsed Dida365 action '{action}' is not implemented yet. Supported actions in this phase are create_task, complete_task, update_task, move_task, delete_task, and batch_complete_tasks.",
+                f"The parsed Dida365 action '{action}' is not implemented yet. Supported actions in this phase are create_task, complete_task, update_task, move_task, and delete_task.",
             )
         return await builders[action](intent, request_text)
 
@@ -593,45 +591,6 @@ class DidaTaskOpsCoordinator:
             ambiguity_reason=intent.ambiguity_reason,
         )
 
-    async def _build_batch_complete_execution_plan(
-        self,
-        intent: DidaLlmTaskIntent,
-        request_text: str,
-    ) -> DidaExecutionPlan:
-        batch_scope = self._normalize_single_line(intent.batch_scope).lower()
-        batch_tasks, scope_display = await self._resolve_batch_task_scope(
-            batch_scope=batch_scope,
-            project_query=intent.project,
-        )
-        if not batch_tasks:
-            raise DidaValidationError(
-                "The parsed Dida365 batch operation did not resolve to any tasks.",
-            )
-        if len(batch_tasks) > self.MAX_BATCH_TASKS:
-            raise DidaValidationError(
-                f"The parsed Dida365 batch operation matched {len(batch_tasks)} tasks, which exceeds the safe limit of {self.MAX_BATCH_TASKS}. Please narrow the scope first.",
-            )
-
-        risk_level = self._resolve_risk_level("batch_complete_tasks")
-        requires_confirmation, confirmation_reason = self._compute_confirmation_policy(
-            risk_level=risk_level,
-            intent=intent,
-        )
-        return DidaExecutionPlan(
-            action="batch_complete_tasks",
-            risk_level=risk_level,
-            requires_confirmation=requires_confirmation,
-            confirmation_reason=confirmation_reason,
-            request_text=request_text,
-            operation_meta={
-                "batch_scope": batch_scope,
-                "scope_display": scope_display,
-                "tasks": [task.to_dict() for task in batch_tasks],
-            },
-            intent_confidence=intent.confidence,
-            ambiguity_reason=intent.ambiguity_reason,
-        )
-
     async def _execute_plan(self, plan: DidaExecutionPlan, *, confirmed: bool) -> str:
         if plan.action == "create_task":
             return await self._execute_create_task(plan, confirmed=confirmed)
@@ -643,8 +602,6 @@ class DidaTaskOpsCoordinator:
             return await self._execute_move_task(plan, confirmed=confirmed)
         if plan.action == "delete_task":
             return await self._execute_delete_task(plan, confirmed=confirmed)
-        if plan.action == "batch_complete_tasks":
-            return await self._execute_batch_complete_tasks(plan, confirmed=confirmed)
         raise DidaValidationError(
             f"Unsupported Dida365 action execution: {plan.action}"
         )
@@ -675,23 +632,19 @@ class DidaTaskOpsCoordinator:
         priority_display = plan.create_task.priority_display
         if effective_task.priority is not None:
             priority_display = self.service._format_priority(effective_task)
-        header = (
-            "Dida365 task created after confirmation."
-            if confirmed
-            else "Dida365 task created."
-        )
+        header = "已确认并创建滴答清单任务。" if confirmed else "已创建滴答清单任务。"
         lines = [
             header,
-            f"- title: {self._display(effective_task.title or plan.create_task.title, fallback='(untitled)')}",
-            f"- project: {self._display(plan.create_task.project_name, fallback=plan.create_task.project_id or '(unknown)')}",
-            f"- due: {due_display}",
-            f"- priority: {priority_display}",
-            f"- task_id: {created_task.id or '(unknown)'}",
+            f"- 标题: {self._display(effective_task.title or plan.create_task.title, fallback='(无标题)')}",
+            f"- 项目: {self._display(plan.create_task.project_name, fallback=plan.create_task.project_id or '(未知项目)')}",
+            f"- 截止: {due_display}",
+            f"- 优先级: {priority_display}",
+            f"- 任务 ID: {created_task.id or '(未知)'}",
         ]
         if due_warning:
-            lines.append(f"- due_warning: {due_warning}")
+            lines.append(f"- 截止日期提示: {due_warning}")
         if plan.create_task.content:
-            lines.append("- content: present")
+            lines.append("- 备注: 已设置")
         return "\n".join(lines)
 
     async def _execute_complete_task(
@@ -712,19 +665,15 @@ class DidaTaskOpsCoordinator:
             )
         except Exception:
             effective_task = None
-        header = (
-            "Dida365 task completed after confirmation."
-            if confirmed
-            else "Dida365 task completed."
-        )
+        header = "已确认并完成滴答清单任务。" if confirmed else "已完成滴答清单任务。"
         return "\n".join(
             [
                 header,
-                f"- title: {self._display((effective_task.title if effective_task else plan.target_task.title), fallback='(untitled)')}",
-                f"- project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(unknown)')}",
-                f"- due: {self.service._format_due(effective_task) if effective_task else plan.target_task.due_display}",
-                f"- status: {self.service._format_status(effective_task) if effective_task else 'completed'}",
-                f"- task_id: {plan.target_task.task_id}",
+                f"- 标题: {self._display((effective_task.title if effective_task else plan.target_task.title), fallback='(无标题)')}",
+                f"- 项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(未知项目)')}",
+                f"- 截止: {self.service._format_due(effective_task) if effective_task else plan.target_task.due_display}",
+                f"- 状态: {self.service._format_status(effective_task) if effective_task else 'completed'}",
+                f"- 任务 ID: {plan.target_task.task_id}",
             ]
         )
 
@@ -768,26 +717,20 @@ class DidaTaskOpsCoordinator:
             ),
             effective_task=effective_task,
         )
-        header = (
-            "Dida365 task updated after confirmation."
-            if confirmed
-            else "Dida365 task updated."
-        )
+        header = "已确认并更新滴答清单任务。" if confirmed else "已更新滴答清单任务。"
         lines = [
             header,
-            f"- title: {self._display(effective_task.title or plan.target_task.title, fallback='(untitled)')}",
-            f"- project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(unknown)')}",
-            f"- due: {due_display}",
-            f"- priority: {self.service._format_priority(effective_task)}",
-            f"- task_id: {plan.target_task.task_id}",
-            f"- updated_fields: {self._describe_updated_fields(plan.update_task)}",
+            f"- 标题: {self._display(effective_task.title or plan.target_task.title, fallback='(无标题)')}",
+            f"- 项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(未知项目)')}",
+            f"- 截止: {due_display}",
+            f"- 优先级: {self.service._format_priority(effective_task)}",
+            f"- 任务 ID: {plan.target_task.task_id}",
+            f"- 已更新字段: {self._describe_updated_fields(plan.update_task)}",
         ]
         if plan.update_task.has_content_change:
-            lines.append(
-                f"- content: {'present' if effective_task.content else 'empty'}"
-            )
+            lines.append(f"- 备注: {'已设置' if effective_task.content else '已清空'}")
         if due_warning:
-            lines.append(f"- due_warning: {due_warning}")
+            lines.append(f"- 截止日期提示: {due_warning}")
         return "\n".join(lines)
 
     async def _execute_move_task(
@@ -824,19 +767,15 @@ class DidaTaskOpsCoordinator:
             except Exception:
                 effective_task = moved_task
 
-        header = (
-            "Dida365 task moved after confirmation."
-            if confirmed
-            else "Dida365 task moved."
-        )
+        header = "已确认并移动滴答清单任务。" if confirmed else "已移动滴答清单任务。"
         return "\n".join(
             [
                 header,
-                f"- title: {self._display(effective_task.title or plan.target_task.title, fallback='(untitled)')}",
-                f"- from_project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(unknown)')}",
-                f"- to_project: {self._display(target_project_name, fallback=target_project_id or '(unknown)')}",
-                f"- due: {self.service._format_due(effective_task)}",
-                f"- task_id: {plan.target_task.task_id}",
+                f"- 标题: {self._display(effective_task.title or plan.target_task.title, fallback='(无标题)')}",
+                f"- 原项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(未知项目)')}",
+                f"- 目标项目: {self._display(target_project_name, fallback=target_project_id or '(未知项目)')}",
+                f"- 截止: {self.service._format_due(effective_task)}",
+                f"- 任务 ID: {plan.target_task.task_id}",
             ]
         )
 
@@ -848,68 +787,16 @@ class DidaTaskOpsCoordinator:
         await self.service.client.delete_task(
             plan.target_task.project_id, plan.target_task.task_id
         )
-        header = (
-            "Dida365 task deleted after confirmation."
-            if confirmed
-            else "Dida365 task deleted."
-        )
+        header = "已确认并删除滴答清单任务。" if confirmed else "已删除滴答清单任务。"
         return "\n".join(
             [
                 header,
-                f"- title: {self._display(plan.target_task.title, fallback='(untitled)')}",
-                f"- project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(unknown)')}",
-                f"- due: {plan.target_task.due_display}",
-                f"- task_id: {plan.target_task.task_id}",
+                f"- 标题: {self._display(plan.target_task.title, fallback='(无标题)')}",
+                f"- 项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id or '(未知项目)')}",
+                f"- 截止: {plan.target_task.due_display}",
+                f"- 任务 ID: {plan.target_task.task_id}",
             ]
         )
-
-    async def _execute_batch_complete_tasks(
-        self, plan: DidaExecutionPlan, *, confirmed: bool
-    ) -> str:
-        task_dicts = plan.operation_meta.get("tasks") or []
-        if not isinstance(task_dicts, list) or not task_dicts:
-            raise DidaValidationError(
-                "Missing batch task set for batch_complete_tasks execution."
-            )
-
-        task_plans = [
-            DidaMatchedTaskPlan.from_dict(item)
-            for item in task_dicts
-            if isinstance(item, dict)
-        ]
-        completed: list[DidaMatchedTaskPlan] = []
-        failed: list[str] = []
-        for task_plan in task_plans:
-            try:
-                await self.service.client.complete_task(
-                    task_plan.project_id, task_plan.task_id
-                )
-                completed.append(task_plan)
-            except Exception as exc:
-                failed.append(f"{task_plan.title}: {exc!s}")
-
-        header = (
-            "Dida365 batch completion finished after confirmation."
-            if confirmed
-            else "Dida365 batch completion finished."
-        )
-        lines = [
-            header,
-            f"- scope: {plan.operation_meta.get('scope_display', '(unknown)')}",
-            f"- completed_count: {len(completed)}",
-            f"- failed_count: {len(failed)}",
-        ]
-        if completed:
-            lines.append("- completed_sample:")
-            for item in completed[:5]:
-                lines.append(
-                    f"  - {self._display(item.title, fallback='(untitled)')} [{item.task_id}]"
-                )
-        if failed:
-            lines.append("- failed_sample:")
-            for item in failed[:3]:
-                lines.append(f"  - {item}")
-        return "\n".join(lines)
 
     async def _resolve_project(self, project_query: str) -> DidaProject:
         projects = await self.service.client.list_projects()
@@ -1035,45 +922,6 @@ class DidaTaskOpsCoordinator:
         raise DidaValidationError(
             self._build_ambiguous_task_error(normalized_query, ambiguous_items)
         )
-
-    async def _resolve_batch_task_scope(
-        self,
-        *,
-        batch_scope: str,
-        project_query: str,
-    ) -> tuple[list[DidaMatchedTaskPlan], str]:
-        if batch_scope == "today":
-            items = await self.service.list_today_tasks(today=self.service._today())
-            scope_display = "today tasks"
-        elif batch_scope == "overdue":
-            items = [
-                item
-                for item in await self.service.list_unfinished_tasks()
-                if self.service._is_overdue(item.task)
-            ]
-            scope_display = "overdue unfinished tasks"
-        elif batch_scope == "unfinished_project":
-            effective_project_query = self._normalize_single_line(
-                project_query
-            ) or self._normalize_single_line(self.settings.default_project)
-            if not effective_project_query:
-                raise DidaValidationError(
-                    "batch_complete_tasks with unfinished_project scope requires an explicit project or configured default_project.",
-                )
-            project = await self._resolve_project(effective_project_query)
-            items = [
-                item
-                for item in await self.service.list_unfinished_tasks()
-                if item.project_id == project.id
-            ]
-            scope_display = f"unfinished tasks in project {project.name or project.id}"
-        else:
-            raise DidaValidationError(
-                "Only these batch scopes are supported in this phase: today, overdue, unfinished_project.",
-            )
-
-        task_plans = [self._matched_task_from_item(item) for item in items]
-        return task_plans, scope_display
 
     @staticmethod
     def _filter_task_candidates_by_project(
@@ -1560,75 +1408,61 @@ class DidaTaskOpsCoordinator:
     def _render_confirmation_request(self, plan: DidaExecutionPlan) -> str:
         seconds_left = max(0, int(plan.expires_at_ts - time.time()))
         lines = [
-            "Dida365 task operation is waiting for confirmation.",
-            f"- action: {plan.action}",
-            f"- risk_level: {plan.risk_level}",
+            "滴答清单任务操作正在等待确认。",
+            f"- 动作: {plan.action}",
+            f"- 风险等级: {plan.risk_level}",
             (
-                f"- confirmation_reason: {plan.confirmation_reason}"
+                f"- 确认原因: {plan.confirmation_reason}"
                 if plan.confirmation_reason
-                else "- confirmation_reason: (none)"
+                else "- 确认原因: (无)"
             ),
         ]
         if plan.action == "create_task" and plan.create_task:
             lines.extend(
                 [
-                    f"- title: {self._display(plan.create_task.title, fallback='(untitled)')}",
-                    f"- project: {self._display(plan.create_task.project_name, fallback=plan.create_task.project_id)}",
-                    f"- due: {plan.create_task.due_display}",
-                    f"- priority: {plan.create_task.priority_display}",
+                    f"- 标题: {self._display(plan.create_task.title, fallback='(无标题)')}",
+                    f"- 项目: {self._display(plan.create_task.project_name, fallback=plan.create_task.project_id)}",
+                    f"- 截止: {plan.create_task.due_display}",
+                    f"- 优先级: {plan.create_task.priority_display}",
                 ]
             )
         elif plan.action == "move_task" and plan.target_task:
             lines.extend(
                 [
-                    f"- title: {self._display(plan.target_task.title, fallback='(untitled)')}",
-                    f"- from_project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id)}",
-                    f"- to_project: {self._display(str(plan.operation_meta.get('target_project_name', '')), fallback=str(plan.operation_meta.get('target_project_id', '(unknown)')))}",
-                    f"- due: {plan.target_task.due_display}",
-                    f"- task_id: {plan.target_task.task_id}",
+                    f"- 标题: {self._display(plan.target_task.title, fallback='(无标题)')}",
+                    f"- 原项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id)}",
+                    f"- 目标项目: {self._display(str(plan.operation_meta.get('target_project_name', '')), fallback=str(plan.operation_meta.get('target_project_id', '(未知项目)')))}",
+                    f"- 截止: {plan.target_task.due_display}",
+                    f"- 任务 ID: {plan.target_task.task_id}",
                 ]
             )
         elif plan.action == "delete_task" and plan.target_task:
             lines.extend(
                 [
-                    f"- title: {self._display(plan.target_task.title, fallback='(untitled)')}",
-                    f"- project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id)}",
-                    f"- due: {plan.target_task.due_display}",
-                    f"- task_id: {plan.target_task.task_id}",
+                    f"- 标题: {self._display(plan.target_task.title, fallback='(无标题)')}",
+                    f"- 项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id)}",
+                    f"- 截止: {plan.target_task.due_display}",
+                    f"- 任务 ID: {plan.target_task.task_id}",
                 ]
             )
-        elif plan.action == "batch_complete_tasks":
-            lines.extend(
-                [
-                    f"- scope: {plan.operation_meta.get('scope_display', '(unknown)')}",
-                    f"- task_count: {len(plan.operation_meta.get('tasks') or [])}",
-                    "- sample:",
-                ]
-            )
-            for item in (plan.operation_meta.get("tasks") or [])[:5]:
-                if isinstance(item, dict):
-                    task_plan = DidaMatchedTaskPlan.from_dict(item)
-                    lines.append(
-                        f"  - {self._display(task_plan.title, fallback='(untitled)')} [{task_plan.task_id}]"
-                    )
         elif plan.target_task:
             lines.extend(
                 [
-                    f"- title: {self._display(plan.target_task.title, fallback='(untitled)')}",
-                    f"- project: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id)}",
-                    f"- due: {plan.target_task.due_display}",
-                    f"- status: {plan.target_task.status_display}",
-                    f"- task_id: {plan.target_task.task_id}",
+                    f"- 标题: {self._display(plan.target_task.title, fallback='(无标题)')}",
+                    f"- 项目: {self._display(plan.target_task.project_name, fallback=plan.target_task.project_id)}",
+                    f"- 截止: {plan.target_task.due_display}",
+                    f"- 状态: {plan.target_task.status_display}",
+                    f"- 任务 ID: {plan.target_task.task_id}",
                 ]
             )
             if plan.action == "update_task" and plan.update_task:
                 lines.append(
-                    f"- updated_fields: {self._describe_updated_fields(plan.update_task)}"
+                    f"- 已更新字段: {self._describe_updated_fields(plan.update_task)}"
                 )
         lines.extend(
             [
-                f"- expires_in_seconds: {seconds_left}",
-                "Reply with /dida_confirm to execute, or /dida_cancel to discard.",
+                f"- 剩余确认时间（秒）: {seconds_left}",
+                "回复 /dida_confirm 执行，或回复 /dida_cancel 取消。",
             ]
         )
         return "\n".join(lines)
@@ -1670,8 +1504,6 @@ class DidaTaskOpsCoordinator:
             return self._display(plan.create_task.title, fallback="(untitled)")
         if plan.target_task:
             return self._display(plan.target_task.title, fallback="(untitled)")
-        if plan.action == "batch_complete_tasks":
-            return f"{len(plan.operation_meta.get('tasks') or [])} tasks"
         return "(unknown)"
 
     @staticmethod

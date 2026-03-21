@@ -5,7 +5,9 @@ import re
 
 from astrbot.api import logger
 from astrbot.core.astr_main_agent import _get_session_conv
-from astrbot.core.astr_main_agent_resources import CHATUI_SPECIAL_DEFAULT_PERSONA_PROMPT
+from astrbot.core.astr_main_agent_resources import (
+    CHATUI_SPECIAL_DEFAULT_PERSONA_PROMPT,
+)
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.message_session import MessageSession
 from astrbot.core.provider.entities import ProviderRequest
@@ -17,13 +19,13 @@ from .types import DidaPluginSettings, DidaStructuredReport
 
 _DEFAULT_LLM_REPORT_PROMPT = """你是一个任务汇报助手。下面会提供已经筛选和整理好的任务汇报数据。
 你的职责：
-1. 基于提供的数据生成简洁、清晰、忠于事实的汇报
-2. 不要编造不存在的任务、项目、时间或优先级
-3. 不要修改任务事实
-4. 可以根据当前人格风格调整语气，但不要影响事实准确性
-5. 先总结整体情况，再列出最重要的任务
-6. 如果没有任务，直接明确说明
-7. 输出适合作为聊天消息直接发送
+1. 基于提供的数据生成简洁、清晰、忠于事实的汇报。
+2. 不要编造不存在的任务、项目、时间或优先级。
+3. 不要修改任务事实。
+4. 可以根据当前人格风格调整语气，但不要影响事实准确性。
+5. 先总结整体情况，再列出最重要的任务。
+6. 如果没有任务，直接明确说明。
+7. 输出适合作为聊天消息直接发送。
 
 以下是结构化任务汇报输入：
 {structured_report_input}
@@ -63,7 +65,7 @@ class DidaReportingCoordinator:
     async def send_scheduled_report(self, report_type: str, target_umo: str) -> str:
         if not target_umo:
             raise DidaConfigurationError(
-                "Dida365 report target is not configured. Bind a session first.",
+                "未配置主动汇报目标会话，请先执行 /dida_bind_report_target。",
             )
 
         message_text = await self.generate_report_message(
@@ -75,9 +77,7 @@ class DidaReportingCoordinator:
             MessageChain().message(message_text),
         )
         if not ok:
-            raise DidaError(
-                f"Failed to send Dida365 proactive report to target session: {target_umo}",
-            )
+            raise DidaError(f"向目标会话发送滴答清单主动汇报失败：{target_umo}")
         return message_text
 
     async def generate_report_message(
@@ -104,10 +104,7 @@ class DidaReportingCoordinator:
                 exc,
                 exc_info=True,
             )
-            return (
-                "Dida365 LLM report generation failed, falling back to direct mode.\n\n"
-                f"{direct_text}"
-            )
+            return f"LLM 汇报生成失败，已回退为 direct 模式。\n\n{direct_text}"
 
         return direct_text
 
@@ -124,7 +121,7 @@ class DidaReportingCoordinator:
                 now=now,
                 max_tasks=self.settings.llm_max_tasks,
             )
-        raise DidaConfigurationError(f"Unsupported Dida365 report type: {report_type}")
+        raise DidaConfigurationError(f"不支持的滴答清单汇报类型：{report_type}")
 
     async def _generate_llm_report(
         self,
@@ -134,9 +131,7 @@ class DidaReportingCoordinator:
     ) -> str:
         provider = self.context.get_using_provider(target_umo)
         if not provider:
-            raise DidaConfigurationError(
-                "No active chat provider is configured for the bound report target.",
-            )
+            raise DidaConfigurationError("当前汇报目标会话没有可用的聊天模型。")
 
         session = MessageSession.from_str(target_umo)
         conversation = await self._get_conversation_for_target(target_umo)
@@ -168,7 +163,7 @@ class DidaReportingCoordinator:
         )
         completion = (llm_resp.completion_text or "").strip()
         if not completion:
-            raise DidaError("LLM returned an empty Dida365 report message.")
+            raise DidaError("LLM 返回了空的滴答清单汇报内容。")
         return completion
 
     async def _get_conversation_for_target(self, target_umo: str):

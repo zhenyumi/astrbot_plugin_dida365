@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from astrbot.core.astr_main_agent import _get_session_conv
-from astrbot.core.astr_main_agent_resources import CHATUI_SPECIAL_DEFAULT_PERSONA_PROMPT
+from astrbot.core.astr_main_agent_resources import (
+    CHATUI_SPECIAL_DEFAULT_PERSONA_PROMPT,
+)
 from astrbot.core.platform.message_session import MessageSession
 
 from .exceptions import DidaConfigurationError, DidaLlmIntentError
@@ -22,7 +24,7 @@ _JSON_OBJECT_PATTERN = re.compile(r"(\{[\s\S]*\})")
 _DEFAULT_LLM_TASK_OPS_PROMPT = """You are a Dida365 task operation intent parser.
 Your only job is to convert the user's natural-language instruction into one JSON object.
 Do not explain your reasoning. Do not wrap the JSON in Markdown unless required by the model.
-This phase supports these executable actions: create_task, complete_task, update_task, move_task, delete_task, batch_complete_tasks.
+This phase supports these executable actions: create_task, complete_task, update_task, move_task, delete_task.
 If the user asks for another unsupported action, still report the best matching action name, but do not rewrite it into a supported action.
 
 Rules:
@@ -36,16 +38,14 @@ Rules:
 8. due_datetime must use YYYY-MM-DD HH:MM when a specific local time is known.
 9. The top-level priority and content fields are only for create_task.
 10. For update_task, put only changed fields into update_fields. Supported keys are due_date, due_datetime, priority, and content.
-11. For batch_complete_tasks, batch_scope must be one of: today, overdue, unfinished_project.
-12. For unfinished_project batch scope, project must contain the project reference.
-13. confidence should be a number between 0 and 1.
-14. ambiguity_reason should explain what is unclear, or be an empty string.
-15. risk_level should be "low" for create_task, complete_task, update_task. risk_level should be "high" for move_task, delete_task, batch_complete_tasks.
-16. When the user says to cancel, remove, delete, drop, or no longer do an existing task, prefer delete_task, not create_task.
-17. If the user refers to an existing task using labels like "Task: Wash up", "任务: 洗澡", or quoted text, copy the referenced task text into target_task_query without the label prefix when possible.
-18. If the user says to cancel a previously planned task, and the instruction is about the existing task itself rather than the pending confirmation flow, treat it as delete_task.
-19. If the user changes a task to a date or time, such as "move it to tomorrow", "改到明天", "推迟到周五", or "改到晚上十一点", treat that as update_task with due_date or due_datetime, not move_task.
-20. Use move_task only when the target is another project, list, or folder. If there is no target project/list, do not use move_task.
+11. confidence should be a number between 0 and 1.
+12. ambiguity_reason should explain what is unclear, or be an empty string.
+13. risk_level should be "low" for create_task, complete_task, update_task. risk_level should be "high" for move_task and delete_task.
+14. When the user says to cancel, remove, delete, drop, or no longer do an existing task, prefer delete_task, not create_task.
+15. If the user refers to an existing task using labels like "Task: Wash up", "任务: 洗澡", or quoted text, copy the referenced task text into target_task_query without the label prefix when possible.
+16. If the user says to cancel a previously planned task, and the instruction is about the existing task itself rather than the pending confirmation flow, treat it as delete_task.
+17. If the user changes a task to a date or time, such as "move it to tomorrow", "改到明天", "推迟到周五", or "改到晚上十一点", treat that as update_task with due_date or due_datetime, not move_task.
+18. Use move_task only when the target is another project, list, or folder. If there is no target project or list, do not use move_task.
 
 Return this JSON shape:
 {
@@ -55,7 +55,6 @@ Return this JSON shape:
   "target_task_query": "",
   "project": "",
   "target_project": "",
-  "batch_scope": "",
   "due_date": "",
   "due_datetime": "",
   "priority": "",
@@ -86,7 +85,6 @@ class DidaLlmTaskIntent:
     target_task_query: str = ""
     project: str = ""
     target_project: str = ""
-    batch_scope: str = ""
     due_date: str = ""
     due_datetime: str = ""
     priority: str = ""
@@ -122,7 +120,6 @@ class DidaLlmTaskIntent:
             target_task_query=str(data.get("target_task_query", "") or "").strip(),
             project=str(data.get("project", "") or "").strip(),
             target_project=str(data.get("target_project", "") or "").strip(),
-            batch_scope=str(data.get("batch_scope", "") or "").strip().lower(),
             due_date=str(data.get("due_date", "") or "").strip(),
             due_datetime=str(data.get("due_datetime", "") or "").strip(),
             priority=str(data.get("priority", "") or "").strip().lower(),
